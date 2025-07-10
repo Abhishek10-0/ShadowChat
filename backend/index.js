@@ -9,6 +9,12 @@ const auth = require('./middleware/auth');
 const { OAuth2Client } = require('google-auth-library');
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+const cors = require('cors');
+
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
 
 app.get('/', (req, res) => {
   res.send('Hello from backend!');

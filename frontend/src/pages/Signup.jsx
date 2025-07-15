@@ -82,32 +82,32 @@ export default function Signup() {
           </div>
           <button type="submit" className="w-full py-2 rounded-lg bg-pink-500 text-white font-semibold text-lg shadow hover:bg-pink-600 transition">Sign Up</button>
           {error && <div className="text-pink-500 text-sm text-center">{error}</div>}
-        </form>
+      </form>
         <div className="w-full mt-6 flex flex-col items-center gap-2">
           <span className="text-gray-400">or</span>
-          <GoogleLogin
+        <GoogleLogin
             width="100%"
-            onSuccess={async (credentialResponse) => {
-              try {
-                const res = await fetch('http://localhost:3001/google-login', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ idToken: credentialResponse.credential }),
-                });
-                const data = await res.json();
-                if (res.ok) {
-                  login(data.token);
-                  navigate('/dashboard');
-                } else {
-                  setError(data.error || 'Google login failed');
-                }
-              } catch (err) {
-                setError('Google login failed');
+          onSuccess={async (credentialResponse) => {
+            try {
+              const res = await fetch('http://localhost:3001/google-login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken: credentialResponse.credential }),
+              });
+              const data = await res.json();
+              if (res.ok) {
+                login(data.token);
+                navigate('/dashboard');
+              } else {
+                setError(data.error || 'Google login failed');
               }
-            }}
-            onError={() => setError('Google login failed')}
-          />
-        </div>
+            } catch (err) {
+              setError('Google login failed');
+            }
+          }}
+          onError={() => setError('Google login failed')}
+        />
+      </div>
         <div className="mt-6 text-gray-600 text-base text-center">
           Already have an account?{' '}
           <Link to="/login" className="text-pink-500 font-semibold hover:underline">Sign in</Link>

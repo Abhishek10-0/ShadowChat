@@ -30,6 +30,21 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 app.use(express.json());
 
+// In-memory active user tracking
+const activeUsers = new Map(); // userId -> { username, email, profilePic }
+
+function addActiveUser(user) {
+  activeUsers.set(user.id, {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    profilePic: user.profilePic || '',
+  });
+}
+function removeActiveUser(userId) {
+  activeUsers.delete(userId);
+}
+
 app.post('/register', async (req, res) => {
   try {
     const { username, email, password, profilePic } = req.body;
@@ -40,6 +55,7 @@ app.post('/register', async (req, res) => {
       process.env.JWT_SECRET || 'defaultsecret',
       { expiresIn: '1d' }
     );
+    addActiveUser({ id: user._id.toString(), username: user.username, email: user.email, profilePic: user.profilePic });
     res.status(201).json({ token });
   } catch (err) {
     if (err.code === 11000) {
@@ -65,6 +81,7 @@ app.post('/login', async (req, res) => {
       process.env.JWT_SECRET || 'defaultsecret',
       { expiresIn: '1d' }
     );
+    addActiveUser({ id: user._id.toString(), username: user.username, email: user.email, profilePic: user.profilePic });
     res.json({ token });
   } catch (err) {
     res.status(500).json({ error: 'Login failed', details: err.message });
@@ -73,6 +90,16 @@ app.post('/login', async (req, res) => {
 
 app.get('/protected', auth, (req, res) => {
   res.json({ userId: req.user });
+});
+
+app.get('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user).select('-password');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch user', details: err.message });
+  }
 });
 
 app.post('/google-login', async (req, res) => {
@@ -100,10 +127,17 @@ app.post('/google-login', async (req, res) => {
       process.env.JWT_SECRET || 'defaultsecret',
       { expiresIn: '1d' }
     );
+    addActiveUser({ id: user._id.toString(), username: user.username, email: user.email, profilePic: user.profilePic });
     res.json({ token });
   } catch (err) {
     res.status(401).json({ error: 'Invalid Google ID token', details: err.message });
   }
+});
+
+// List active users (except the requester)
+app.get('/active-users', auth, (req, res) => {
+  const users = Array.from(activeUsers.values()).filter(u => u.id !== req.user);
+  res.json(users);
 });
 
 app.listen(PORT, () => {

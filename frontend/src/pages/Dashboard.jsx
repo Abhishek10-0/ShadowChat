@@ -1,3 +1,191 @@
+import React, { useEffect, useState } from 'react';
+import { User, LogOut, PlusCircle, Bell, Settings, MessageCircle, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+
+const recentChats = [
+  { id: 1, name: 'Random Chat', lastMessage: 'Hey, how are you?', time: '2m ago' },
+  { id: 2, name: 'Tech Talk', lastMessage: 'React or Vue?', time: '10m ago' },
+  { id: 3, name: 'Book Club', lastMessage: 'Loved the last chapter!', time: '1h ago' },
+];
+
 export default function Dashboard() {
-  return <h2>Welcome to your Dashboard!</h2>;
+  const { token, logout } = useAuth();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // New Chat modal state
+  const [showModal, setShowModal] = useState(false);
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [activeLoading, setActiveLoading] = useState(false);
+  const [activeError, setActiveError] = useState('');
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const res = await fetch('http://localhost:3001/me', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('Failed to fetch user');
+        const data = await res.json();
+        setUser(data);
+      } catch (err) {
+        setError('Could not load user info.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (token) fetchUser();
+  }, [token]);
+
+  const handleNewChat = async () => {
+    setShowModal(true);
+    setActiveLoading(true);
+    setActiveError('');
+    try {
+      const res = await fetch('http://localhost:3001/active-users', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch active users');
+      const data = await res.json();
+      setActiveUsers(data);
+    } catch (err) {
+      setActiveError('Could not load active users.');
+    } finally {
+      setActiveLoading(false);
+    }
+  };
+
+  const handleStartChat = (otherUser) => {
+    // For now, just log the selected user
+    // Later, implement chat creation logic
+    alert(`Start chat with ${otherUser.username}`);
+    setShowModal(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col">
+      {/* Header */}
+      <header className="flex items-center justify-between px-8 py-6 bg-white/60 backdrop-blur-md shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500 text-2xl overflow-hidden">
+            {user && user.profilePic ? (
+              <img src={user.profilePic} alt="avatar" className="w-full h-full rounded-full object-cover" />
+            ) : (
+              <User className="w-7 h-7" />
+            )}
+          </div>
+          <div>
+            <div className="font-bold text-lg text-gray-800">{user ? user.username : '...'}</div>
+            <div className="text-xs text-gray-500">{user ? user.email : ''}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <button className="relative p-2 rounded-full hover:bg-indigo-100 transition">
+            <Bell className="w-5 h-5 text-indigo-500" />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-pink-500 rounded-full border-2 border-white"></span>
+          </button>
+          <button className="p-2 rounded-full hover:bg-indigo-100 transition">
+            <Settings className="w-5 h-5 text-gray-500" />
+          </button>
+          <button className="p-2 rounded-full hover:bg-pink-100 transition" onClick={logout}>
+            <LogOut className="w-5 h-5 text-pink-500" />
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col md:flex-row gap-8 px-8 py-8">
+        {/* Left: Recent Chats */}
+        <section className="flex-1 bg-white/60 rounded-2xl shadow-lg p-6 flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+              <MessageCircle className="w-5 h-5 text-indigo-500" /> Recent Chats
+            </h2>
+            <button
+              className="flex items-center gap-1 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-full font-medium transition"
+              onClick={handleNewChat}
+            >
+              <PlusCircle className="w-4 h-4" /> New Chat
+            </button>
+          </div>
+          <ul className="space-y-3 flex-1 overflow-y-auto">
+            {recentChats.map((chat) => (
+              <li key={chat.id} className="flex items-center justify-between bg-white/80 rounded-xl px-4 py-3 shadow hover:shadow-md transition cursor-pointer">
+                <div>
+                  <div className="font-medium text-gray-700">{chat.name}</div>
+                  <div className="text-xs text-gray-500">{chat.lastMessage}</div>
+                </div>
+                <div className="text-xs text-gray-400">{chat.time}</div>
+              </li>
+            ))}
+            {recentChats.length === 0 && (
+              <li className="text-gray-400 text-center py-8">No recent chats yet.</li>
+            )}
+          </ul>
+        </section>
+
+        {/* Right: Announcements/Info */}
+        <aside className="w-full md:w-80 flex-shrink-0 bg-white/60 rounded-2xl shadow-lg p-6 flex flex-col gap-6">
+          <div className="bg-gradient-to-r from-indigo-100 to-purple-100 rounded-xl p-4 shadow flex flex-col items-center">
+            <span className="text-2xl">💬</span>
+            <div className="font-semibold text-indigo-600 mt-2">Welcome to ShadowChat!</div>
+            <div className="text-xs text-gray-500 text-center mt-1">Your privacy matters. All chats are anonymous and encrypted.</div>
+          </div>
+          <div className="bg-white rounded-xl p-4 shadow flex flex-col gap-2">
+            <div className="font-medium text-gray-700">Announcements</div>
+            <ul className="text-xs text-gray-500 list-disc list-inside">
+              <li>New: Anonymous group chats now available!</li>
+              <li>Stay tuned for more features.</li>
+            </ul>
+          </div>
+          {loading && <div className="text-xs text-gray-400 text-center">Loading user info...</div>}
+          {error && <div className="text-xs text-pink-500 text-center">{error}</div>}
+        </aside>
+      </main>
+
+      {/* New Chat Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md relative animate-fade-in">
+            <button
+              className="absolute top-3 right-3 p-1 rounded-full hover:bg-gray-100"
+              onClick={() => setShowModal(false)}
+            >
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">Start a New Chat</h3>
+            {activeLoading && <div className="text-center text-gray-400 py-6">Loading active users...</div>}
+            {activeError && <div className="text-center text-pink-500 py-6">{activeError}</div>}
+            {!activeLoading && !activeError && (
+              <ul className="space-y-3 max-h-64 overflow-y-auto">
+                {activeUsers.length === 0 && <li className="text-gray-400 text-center">No active users found.</li>}
+                {activeUsers.map((u) => (
+                  <li
+                    key={u.id}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-indigo-50 cursor-pointer transition"
+                    onClick={() => handleStartChat(u)}
+                  >
+                    <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500 text-lg overflow-hidden">
+                      {u.profilePic ? (
+                        <img src={u.profilePic} alt="avatar" className="w-full h-full rounded-full object-cover" />
+                      ) : (
+                        <User className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-700">{u.username}</div>
+                      <div className="text-xs text-gray-500">{u.email}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 } 

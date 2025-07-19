@@ -8,6 +8,7 @@ import './App.css'
 import ProtectedRoute from './components/ProtectedRoute'
 import React from 'react'; // Added for useEffect
 import HomePage from './HomePage.jsx';
+import Chat from './pages/Chat.jsx';
 
 function App() {
   return (
@@ -19,6 +20,11 @@ function App() {
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } />
+        <Route path="/chat/:userId" element={
+          <ProtectedRoute>
+            <Chat />
           </ProtectedRoute>
         } />
         <Route path="/" element={<HomePage />} />

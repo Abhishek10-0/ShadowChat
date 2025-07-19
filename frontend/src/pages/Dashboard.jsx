@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { User, LogOut, PlusCircle, Bell, Settings, MessageCircle, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const recentChats = [
   { id: 1, name: 'Random Chat', lastMessage: 'Hey, how are you?', time: '2m ago' },
@@ -13,6 +14,7 @@ export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   // New Chat modal state
   const [showModal, setShowModal] = useState(false);
@@ -59,10 +61,10 @@ export default function Dashboard() {
   };
 
   const handleStartChat = (otherUser) => {
-    // For now, just log the selected user
-    // Later, implement chat creation logic
-    alert(`Start chat with ${otherUser.username}`);
     setShowModal(false);
+    // Pass user details to chat page via URL state or localStorage
+    localStorage.setItem('selectedChatUser', JSON.stringify(otherUser));
+    navigate(`/chat/${otherUser.id || otherUser._id}`);
   };
 
   return (

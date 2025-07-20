@@ -13,6 +13,6 @@ router.get('/active-users', auth, (req, res) => {
   getActiveUsers(req, res, onlineUsersRef);
 });
 
-router.get('/chats', auth, getRecentChats);
+router.get('/', auth, getRecentChats);
 
 export { router }; 

@@ -1,4 +1,5 @@
 import Message from '../models/Message.js';
+import User from '../models/User.js';
 
 // Track typing users: { chatId: Set of typing user IDs }
 const typingUsers = new Map();
@@ -29,9 +30,15 @@ function removeTypingUser(chatId, userId) {
 const setupSocket = (io, onlineUsers) => {
   io.on('connection', (socket) => {
     // Authenticate user on connection
-    socket.on('login', (userId) => {
+    socket.on('login', async (userId) => {
       onlineUsers.set(userId, socket); // Update socket reference
       socket.userId = userId;
+      // Set lastSeen to null (or now) to indicate online
+      try {
+        await User.findByIdAndUpdate(userId, { lastSeen: null });
+      } catch (err) {
+        console.error('Error updating lastSeen on connect:', err);
+      }
       // Broadcast online status to all users
       socket.broadcast.emit('user_online', userId);
     });
@@ -116,9 +123,15 @@ const setupSocket = (io, onlineUsers) => {
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       if (socket.userId) {
         onlineUsers.delete(socket.userId);
+        // Update lastSeen to now
+        try {
+          await User.findByIdAndUpdate(socket.userId, { lastSeen: new Date() });
+        } catch (err) {
+          console.error('Error updating lastSeen on disconnect:', err);
+        }
         // Broadcast offline status
         socket.broadcast.emit('user_offline', socket.userId);
       }

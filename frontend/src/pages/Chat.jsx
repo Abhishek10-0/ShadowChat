@@ -3,8 +3,19 @@ import { ArrowLeft, User, Send, Image as ImageIcon, X } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { io } from 'socket.io-client';
+import axios from 'axios';
 
 const SOCKET_URL = 'http://localhost:3001';
+
+// Helper to format last seen
+function formatLastSeen(lastSeen) {
+  if (!lastSeen) return 'a while ago';
+  const diff = Date.now() - new Date(lastSeen).getTime();
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} hr ago`;
+  return new Date(lastSeen).toLocaleString();
+}
 
 export default function Chat() {
   const { userId } = useParams();
@@ -49,14 +60,12 @@ export default function Chat() {
       setSidebarLoading(true);
       setSidebarError('');
       try {
-        const res = await fetch('http://localhost:3001/chats', {
+        const res = await axios.get('http://localhost:3001/api/chats', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) throw new Error('Failed to fetch chats');
-        const data = await res.json();
-        setRecentChats(data);
+        setRecentChats(res.data);
       } catch (err) {
-        setSidebarError('Could not load chats.');
+        setSidebarError(err.response?.data?.error || 'Could not load chats.');
       } finally {
         setSidebarLoading(false);
       }
@@ -100,19 +109,17 @@ export default function Chat() {
 
       // If not in recent chats, try to fetch from active users
       try {
-        const res = await fetch('http://localhost:3001/active-users', {
+        const res = await axios.get('http://localhost:3001/api/chats/active-users', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.ok) {
-          const activeUsers = await res.json();
-          const foundInActive = activeUsers.find(u => u._id === userId || u.id === userId);
-          if (foundInActive) {
-            setSelectedUser({
-              ...foundInActive,
-              online: onlineUsers.has(userId),
-            });
-            return;
-          }
+        const activeUsers = res.data;
+        const foundInActive = activeUsers.find(u => u._id === userId || u.id === userId);
+        if (foundInActive) {
+          setSelectedUser({
+            ...foundInActive,
+            online: onlineUsers.has(userId),
+          });
+          return;
         }
       } catch (err) {
         console.error('Failed to fetch active users:', err);
@@ -135,12 +142,10 @@ export default function Chat() {
     const fetchMessages = async () => {
       if (!userId) return;
       try {
-        const res = await fetch(`http://localhost:3001/messages/${userId}`, {
+        const res = await axios.get(`http://localhost:3001/api/messages/${userId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) throw new Error('Failed to fetch messages');
-        const data = await res.json();
-        setMessages(data);
+        setMessages(res.data);
       } catch (err) {
         setMessages([]);
       }
@@ -340,13 +345,11 @@ export default function Chat() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('http://localhost:3001/upload', {
-        method: 'POST',
+      const res = await axios.post('http://localhost:3001/upload', formData, {
         headers: { Authorization: `Bearer ${token}` },
-        body: formData,
       });
-      const data = await res.json();
-      if (res.ok && data.url) {
+      const data = res.data;
+      if (data.url) {
         // Send the image as a message (special type)
         socket.emit('send_message', {
           to: userId,
@@ -423,9 +426,11 @@ export default function Chat() {
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-gray-800 leading-tight">{selectedUser.username}</span>
-            <span className={`text-xs ${isSelectedUserOnline ? 'text-green-500' : 'text-gray-400'}`}>
-              {isSelectedUserOnline ? 'Online' : 'Offline'}
-            </span>
+            {selectedUser.online ? (
+              <span className="text-xs text-green-500">Online</span>
+            ) : (
+              <span className="text-xs text-gray-400">Last seen {formatLastSeen(selectedUser.lastSeen)}</span>
+            )}
           </div>
         </header>
 

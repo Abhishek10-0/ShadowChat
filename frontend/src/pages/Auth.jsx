@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { Cloud, MessageCircle, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -112,68 +113,64 @@ const Auth = () => {
     setError('');
     try {
       if (isLogin) {
-        // Login
-        const res = await fetch('http://localhost:3001/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password
-          })
+        // Login (already axios)
+        const res = await axios.post('http://localhost:3001/api/auth/login', {
+          email: formData.email,
+          password: formData.password
         });
-        const data = await res.json();
-        if (res.ok) {
-          login(data.token);
-          navigate('/dashboard');
-        } else {
-          setError(data.error || 'Login failed');
-        }
+        const data = res.data;
+        login(data.token);
+        navigate('/dashboard');
       } else {
-        // Register
-        const res = await fetch('http://localhost:3001/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: formData.username,
-            email: formData.email,
-            password: formData.password,
-            profilePic: '' // You can add a profilePic field to the form if needed
-          })
+        // Register (convert to axios)
+        const res = await axios.post('http://localhost:3001/api/auth/register', {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          profilePic: ''
         });
-        const data = await res.json();
-        if (res.ok) {
-          login(data.token);
-          navigate('/dashboard');
-        } else {
-          setError(data.error || 'Signup failed');
-        }
+        login(res.data.token);
+        navigate('/dashboard');
       }
     } catch (err) {
-      setError('Something went wrong. Please try again.');
+      setError(err.response?.data?.error || 'Something went wrong. Please try again.');
     }
   };
 
   const handleGoogleSuccess = async (tokenResponse) => {
     try {
-      const res = await fetch('http://localhost:3001/google-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: tokenResponse.credential }),
+      const res = await axios.post('http://localhost:3001/api/auth/google-login', {
+        idToken: tokenResponse.credential
       });
-      const data = await res.json();
-      if (res.ok) {
-        login(data.token);
-        navigate('/dashboard');
-      } else {
-        setError(data.error || 'Google login failed');
-      }
+      login(res.data.token);
+      navigate('/dashboard');
     } catch (err) {
-      setError('Google login failed');
+      setError(err.response?.data?.error || 'Google login failed');
     }
   };
 
-  const handleGoogleError = () => {
-    setError('Google login failed');
+  const handleGoogleError = async () => {
+    try {
+      if (isLogin) {
+        const res = await axios.post('http://localhost:3001/api/auth/login', {
+          email: formData.email,
+          password: formData.password
+        });
+        login(res.data.token);
+        navigate('/dashboard');
+      } else {
+        const res = await axios.post('http://localhost:3001/api/auth/register', {
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          profilePic: ''
+        });
+        login(res.data.token);
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || (isLogin ? 'Login failed' : 'Signup failed'));
+    }
   };
 
   return (

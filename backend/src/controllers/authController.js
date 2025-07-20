@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
+import bcrypt from 'bcrypt';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -29,11 +30,15 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log('Login attempt:', email);
     const user = await User.findOne({ email });
+    console.log('User found:', !!user);
     if (!user) {
       return res.status(400).json({ error: 'Invalid email or password' });
     }
-    const isMatch = await require('bcrypt').compare(password, user.password);
+    console.log('Comparing password...');
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match:', isMatch);
     if (!isMatch) {
       return res.status(400).json({ error: 'Invalid email or password' });
     }
@@ -44,6 +49,7 @@ export const login = async (req, res) => {
     );
     res.json({ token });
   } catch (err) {
+    console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed', details: err.message });
   }
 };

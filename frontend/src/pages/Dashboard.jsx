@@ -1,19 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { User, LogOut, PlusCircle, Bell, Settings, MessageCircle, X } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
+import { useAuth, useSocket } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { User, LogOut, PlusCircle, Bell, Settings, MessageCircle, X } from 'lucide-react';
 
-const recentChats = [
-  { id: 1, name: 'Random Chat', lastMessage: 'Hey, how are you?', time: '2m ago' },
-  { id: 2, name: 'Tech Talk', lastMessage: 'React or Vue?', time: '10m ago' },
-  { id: 3, name: 'Book Club', lastMessage: 'Loved the last chapter!', time: '1h ago' },
-];
+// Helper to format last seen
+function formatLastSeen(lastSeen) {
+  if (!lastSeen) return 'a while ago';
+  const diff = Date.now() - new Date(lastSeen).getTime();
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} hr ago`;
+  return new Date(lastSeen).toLocaleString();
+}
 
 export default function Dashboard() {
   const { token, logout } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [recentChats, setRecentChats] = useState([]);
   const navigate = useNavigate();
 
   // New Chat modal state
@@ -27,14 +33,12 @@ export default function Dashboard() {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch('http://localhost:3001/me', {
+        const res = await axios.get('http://localhost:3001/api/auth/me', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) throw new Error('Failed to fetch user');
-        const data = await res.json();
-        setUser(data);
+        setUser(res.data);
       } catch (err) {
-        setError('Could not load user info.');
+        setError(err.response?.data?.error || 'Could not load user info.');
       } finally {
         setLoading(false);
       }
@@ -42,19 +46,35 @@ export default function Dashboard() {
     if (token) fetchUser();
   }, [token]);
 
+  useEffect(() => {
+    const fetchRecentChats = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/chats', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        // Sort by lastMessageTime descending (should already be sorted, but just in case)
+        const sorted = [...res.data].sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
+        setRecentChats(sorted);
+      } catch (err) {
+        setRecentChats([]);
+      }
+    };
+    if (token) fetchRecentChats();
+  }, [token]);
+
+  useSocket(true); // Connect to Socket.IO when on Dashboard
+
   const handleNewChat = async () => {
     setShowModal(true);
     setActiveLoading(true);
     setActiveError('');
     try {
-      const res = await fetch('http://localhost:3001/active-users', {
+      const res = await axios.get('http://localhost:3001/api/chats/active-users', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Failed to fetch active users');
-      const data = await res.json();
-      setActiveUsers(data);
+      setActiveUsers(res.data);
     } catch (err) {
-      setActiveError('Could not load active users.');
+      setActiveError(err.response?.data?.error || 'Could not load active users.');
     } finally {
       setActiveLoading(false);
     }
@@ -62,7 +82,6 @@ export default function Dashboard() {
 
   const handleStartChat = (otherUser) => {
     setShowModal(false);
-    // Pass user details to chat page via URL state or localStorage
     localStorage.setItem('selectedChatUser', JSON.stringify(otherUser));
     navigate(`/chat/${otherUser.id || otherUser._id}`);
   };
@@ -114,18 +133,34 @@ export default function Dashboard() {
             </button>
           </div>
           <ul className="space-y-3 flex-1 overflow-y-auto">
-            {recentChats.map((chat) => (
-              <li key={chat.id} className="flex items-center justify-between bg-white/80 rounded-xl px-4 py-3 shadow hover:shadow-md transition cursor-pointer">
-                <div>
-                  <div className="font-medium text-gray-700">{chat.name}</div>
-                  <div className="text-xs text-gray-500">{chat.lastMessage}</div>
-                </div>
-                <div className="text-xs text-gray-400">{chat.time}</div>
-              </li>
-            ))}
             {recentChats.length === 0 && (
               <li className="text-gray-400 text-center py-8">No recent chats yet.</li>
             )}
+            {recentChats.map((chat) => (
+              <li
+                key={chat._id || chat.id}
+                className="flex items-center justify-between bg-white/80 rounded-xl px-4 py-3 shadow hover:shadow-md transition cursor-pointer"
+                onClick={() => handleStartChat(chat)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-500 text-lg overflow-hidden">
+                    {chat.profilePic ? (
+                      <img src={chat.profilePic} alt="avatar" className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      <User className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-700">{chat.username}</div>
+                    {chat.online ? (
+                      <div className="text-xs text-green-500">Online</div>
+                    ) : (
+                      <div className="text-xs text-gray-400">Last seen {formatLastSeen(chat.lastSeen)}</div>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
           </ul>
         </section>
 

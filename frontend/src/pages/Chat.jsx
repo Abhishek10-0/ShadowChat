@@ -254,13 +254,6 @@ export default function Chat() {
       }
     });
 
-    // Real-time image receive
-    s.on('receive_image', (msg) => {
-      if (msg.sender === userId || msg.receiver === userId) {
-        setMessages((prev) => [...prev, { ...msg, status: 'delivered' }]);
-      }
-    });
-
     setSocket(s);
     return () => {
       s.disconnect();
